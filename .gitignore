@@ -214,5 +214,14 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# Scraped data
+# data/
+
+# Proxy credentials
+# proxies/
+
+# Log files
+# *.log
+
 # Streamlit
 .streamlit/secrets.toml

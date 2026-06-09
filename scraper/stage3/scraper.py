@@ -139,6 +139,7 @@ def extract_locality_metadata(html):
 
 
 def dwr_fetch_price_trend(city_code, prop_type_id, main_property_type, locality_id, sale_or_rent, page_url):
+    time.sleep(REQUEST_DELAY)
     jsessionid = session.cookies.get("JSESSIONID", "")
     script_session_id = ORIG_SCRIPT_SESSION_ID + str(randint(0, 999))
     page_path = urllib.parse.urlparse(page_url).path
@@ -374,12 +375,15 @@ def scrape_locality(city_name, sub_property_type, view_trends_link):
         print(f"      Missing page data: city={city_code}, loc={locality_id}, prop={prop_type_id}")
         return None
 
+    reviews_link = derive_reviews_link(view_trends_link)
+
     result = {
         "city_name": city_name or page_data.get("city_name", ""),
         "sub_property_type": sub_property_type or page_data.get("sub_type_name", ""),
         "locality_name": loc_name,
         "locality_id": locality_id,
         "view_trends_url": view_trends_link,
+        "reviews_link": reviews_link,
     }
 
     # Fetch Sale data
@@ -444,6 +448,15 @@ def scrape_locality(city_name, sub_property_type, view_trends_link):
 
     print(f"      Sale price: {result['sale_avg_price']}, Rent: {result['rent_avg_price']}, Nearby: {len(nearby)} localities, History: {len(price_history)} quarters")
     return result
+
+
+def derive_reviews_link(view_trends_url):
+    m = re.search(r'rates-(.+?)-in-(.+)$', view_trends_url)
+    if m:
+        locality = m.group(1)
+        city = m.group(2)
+        return f"https://www.magicbricks.com/real-estate-property-reviews/{locality}-in-{city}?widgetName=localityRatings"
+    return ""
 
 
 def generate_filename():

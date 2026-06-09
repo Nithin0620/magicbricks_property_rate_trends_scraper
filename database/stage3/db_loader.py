@@ -18,6 +18,7 @@ def create_table(conn, table_name):
                 locality_name VARCHAR(255),
                 locality_id VARCHAR(50),
                 view_trends_url TEXT,
+                reviews_link TEXT,
                 comp_highest_price VARCHAR(100),
                 comp_highest_qoq VARCHAR(50),
                 comp_highest_trend VARCHAR(10),
@@ -57,7 +58,7 @@ def insert_records(conn, table_name, records):
             cur.execute(
                 f"""
                 INSERT INTO {table_name}
-                    (city_name, sub_property_type, locality_name, locality_id, view_trends_url,
+                    (city_name, sub_property_type, locality_name, locality_id, view_trends_url, reviews_link,
                      comp_highest_price, comp_highest_qoq, comp_highest_trend,
                      comp_avg_price, comp_avg_qoq, comp_avg_trend,
                      comp_lowest_price, comp_lowest_qoq, comp_lowest_trend,
@@ -66,7 +67,7 @@ def insert_records(conn, table_name, records):
                      price_history, nearby_localities,
                      locality_rating, locality_rating_users, locality_reviews,
                      total_props, props_for_sale, props_for_rent, projects_count)
-                VALUES (%s, %s, %s, %s, %s,
+                VALUES (%s, %s, %s, %s, %s, %s,
                         %s, %s, %s,
                         %s, %s, %s,
                         %s, %s, %s,
@@ -77,8 +78,8 @@ def insert_records(conn, table_name, records):
                         %s, %s, %s, %s)
                 """,
                 (
-                    r["city_name"], r["sub_property_type"], r["locality_name"],
-                    r["locality_id"], r["view_trends_url"],
+                    r.get("city_name", ""), r.get("sub_property_type", ""), r.get("locality_name", ""),
+                    r.get("locality_id", ""), r.get("view_trends_url", ""), r.get("reviews_link", ""),
                     r.get("comp_highest_price", ""), r.get("comp_highest_qoq", ""),
                     r.get("comp_highest_trend", ""),
                     r.get("comp_avg_price", ""), r.get("comp_avg_qoq", ""),

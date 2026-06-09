@@ -27,6 +27,7 @@ def fetch_page(url):
 
 
 def dwr_call(city_code, prop_type_id, page_num, main_tab, page_url):
+    time.sleep(REQUEST_DELAY)
     jsessionid = session.cookies.get("JSESSIONID", "")
     script_session_id = ORIG_SCRIPT_SESSION_ID + str(randint(0, 999))
 
