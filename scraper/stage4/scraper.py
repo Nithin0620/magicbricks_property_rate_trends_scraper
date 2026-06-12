@@ -3,8 +3,9 @@ import re
 import time
 from datetime import datetime
 
+import requests
 from bs4 import BeautifulSoup
-from scraper.fetch import create_session, do_get
+from scraper.fetch import create_session, do_get, PERMANENT_404, OOPS_STAGE4
 
 BASE_URL = "https://www.magicbricks.com"
 REQUEST_DELAY = 1.0
@@ -113,9 +114,19 @@ def scrape_locality_ratings(reviews_link, locality_name, city_name):
 
     try:
         html = fetch_page(reviews_link)
+    except requests.exceptions.HTTPError as e:
+        if e.response is not None and e.response.status_code == 404:
+            print(f"      Permanent 404 - page permanently gone")
+            return PERMANENT_404
+        print(f"      Failed to fetch: {e}")
+        return None
     except Exception as e:
         print(f"      Failed to fetch: {e}")
         return None
+
+    if OOPS_STAGE4 in html:
+        print(f"      Permanent 404 - page permanently gone")
+        return PERMANENT_404
 
     soup = BeautifulSoup(html, "html.parser")
 

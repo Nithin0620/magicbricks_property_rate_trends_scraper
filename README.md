@@ -110,3 +110,12 @@ If PostgreSQL is configured, each run creates a timestamped table (same naming c
 - A 1-1.5s delay is applied between all requests to avoid rate limiting.
 - If a stage fails or returns no data, downstream stages will detect it and print an error rather than crash.
 - The `proxies/` directory and `data/` directory are gitignored.
+
+
+## Commands
+Commands:
+Mode	Command
+Retry only, limit 5	docker run --rm --name magicbricks-scraper --env-file .env magicbricks-scraper --retry-only --limit 5
+Retry only, full	docker run --rm --name magicbricks-scraper --env-file .env magicbricks-scraper --retry-only
+Full pipeline	docker run --rm --name magicbricks-scraper --env-file .env magicbricks-scraper
+Full pipeline, limit 5	docker run --rm --name magicbricks-scraper --env-file .env magicbricks-scraper --limit 5

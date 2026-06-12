@@ -21,6 +21,7 @@ from scraper.stage1.scraper import scrape_stage1, generate_filename as gen_filen
 from scraper.stage2.scraper import scrape_city, generate_filename as gen_filename_s2
 from scraper.stage3.scraper import scrape_locality, generate_filename as gen_filename_s3
 from scraper.stage4.scraper import scrape_locality_ratings, generate_filename as gen_filename_s4
+from scraper.fetch import PERMANENT_404
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 DATA_DIR_S1 = os.path.join(DATA_DIR, "stage1")
@@ -302,7 +303,11 @@ def retry_failed(conn, limit):
             if stage == 3:
                 print(f"  [Retry {attempt}/2] Stage 3: {city} - {locality} ({sub_type})")
                 result = scrape_locality(city, sub_type, vt_link)
-                if result:
+                if result == PERMANENT_404:
+                    delete_failed_record(conn, fid)
+                    recovered += 1
+                    print(f"    Page permanently gone - removed from failed table")
+                elif result:
                     inserted, dupes = upsert_records(conn, STAGE3_TABLE, [result], STAGE3_COLUMNS, STAGE3_CONFLICT)
                     if inserted:
                         delete_failed_record(conn, fid)
@@ -312,7 +317,11 @@ def retry_failed(conn, limit):
             elif stage == 4:
                 print(f"  [Retry {attempt}/2] Stage 4: {city} - {locality}")
                 result = scrape_locality_ratings(rv_link, locality, city)
-                if result:
+                if result == PERMANENT_404:
+                    delete_failed_record(conn, fid)
+                    recovered += 1
+                    print(f"    Page permanently gone - removed from failed table")
+                elif result:
                     inserted, dupes = upsert_records(conn, STAGE4_TABLE, [result], STAGE4_COLUMNS, STAGE4_CONFLICT)
                     if inserted:
                         delete_failed_record(conn, fid)
@@ -329,6 +338,7 @@ def main():
     parser = argparse.ArgumentParser(description="MagicBricks Property Rate Trends Scraper Pipeline")
     parser.add_argument("--csv", action="store_true", help="Export results to CSV after execution")
     parser.add_argument("--limit", type=int, default=None, help="Process only N records/pages for testing")
+    parser.add_argument("--retry-only", action="store_true", help="Only retry failed items, skip stages 1-4")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -363,19 +373,23 @@ def main():
 
         init_failed_table(conn)
 
-        s1 = run_stage1(conn, args.csv, args.limit)
-        if interrupted:
-            s2, s3, s4 = [], [], []
+        if args.retry_only:
+            print(f"  [Retry-only mode] Skipping stages 1-4\n")
+            s1, s2, s3, s4 = [], [], [], []
         else:
-            s2 = run_stage2(conn, s1, args.csv, args.limit)
-        if interrupted:
-            s3, s4 = [], []
-        else:
-            s3 = run_stage3(conn, s2, args.csv, args.limit)
-        if interrupted:
-            s4 = []
-        else:
-            s4 = run_stage4(conn, s3, args.csv, args.limit)
+            s1 = run_stage1(conn, args.csv, args.limit)
+            if interrupted:
+                s2, s3, s4 = [], [], []
+            else:
+                s2 = run_stage2(conn, s1, args.csv, args.limit)
+            if interrupted:
+                s3, s4 = [], []
+            else:
+                s3 = run_stage3(conn, s2, args.csv, args.limit)
+            if interrupted:
+                s4 = []
+            else:
+                s4 = run_stage4(conn, s3, args.csv, args.limit)
 
         # Retry failed items (2 attempts)
         if not interrupted:

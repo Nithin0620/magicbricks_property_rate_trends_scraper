@@ -5,8 +5,9 @@ import urllib.parse
 from datetime import datetime
 from random import randint
 
+import requests
 from bs4 import BeautifulSoup
-from scraper.fetch import create_session, do_get, do_post
+from scraper.fetch import create_session, do_get, do_post, PERMANENT_404, OOPS_STAGE3
 
 BASE_URL = "https://www.magicbricks.com"
 DWR_PATH = "/bricks/dwr"
@@ -358,9 +359,20 @@ def scrape_locality(city_name, sub_property_type, view_trends_link):
     
     try:
         html = fetch_page(view_trends_link)
+    except requests.exceptions.HTTPError as e:
+        if e.response is not None and e.response.status_code == 404:
+            print(f"      Permanent 404 - page permanently gone")
+            return PERMANENT_404
+        print(f"      Failed to fetch: {e}")
+        return None
     except Exception as e:
         print(f"      Failed to fetch: {e}")
         return None
+
+    if OOPS_STAGE3 in html:
+        print(f"      Permanent 404 - page permanently gone")
+        return PERMANENT_404
+
     page_data = extract_page_url_data(html)
     metadata = extract_locality_metadata(html)
 
@@ -385,68 +397,64 @@ def scrape_locality(city_name, sub_property_type, view_trends_link):
         "reviews_link": reviews_link,
     }
 
-    # Fetch Sale data
-    sale_resp = dwr_fetch_price_trend(city_code, prop_type_id, main_property_type, locality_id, "S", view_trends_link)
-    sale_data = parse_price_trend_response_full(sale_resp)
-    
-    # Fetch Rent data
-    rent_resp = dwr_fetch_price_trend(city_code, prop_type_id, main_property_type, locality_id, "R", view_trends_link)
-    rent_data = parse_price_trend_response_full(rent_resp)
+    try:
+        sale_resp = dwr_fetch_price_trend(city_code, prop_type_id, main_property_type, locality_id, "S", view_trends_link)
+        sale_data = parse_price_trend_response_full(sale_resp)
 
-    # Price compare (from sale data)
-    pc = (sale_data or {}).get("priceCompare", {})
-    result.update({
-        "comp_highest_price": pc.get("max", ""),
-        "comp_highest_qoq": pc.get("maxQoq", ""),
-        "comp_highest_trend": "up" if pc.get("maxUp") else ("down" if pc.get("maxUp") is False else ""),
-        "comp_avg_price": pc.get("avg", ""),
-        "comp_avg_qoq": pc.get("avgQoq", ""),
-        "comp_avg_trend": "up" if pc.get("avgUp") else ("down" if pc.get("avgUp") is False else ""),
-        "comp_lowest_price": pc.get("min", ""),
-        "comp_lowest_qoq": pc.get("minQoq", ""),
-        "comp_lowest_trend": "up" if pc.get("minUp") else ("down" if pc.get("minUp") is False else ""),
-    })
+        rent_resp = dwr_fetch_price_trend(city_code, prop_type_id, main_property_type, locality_id, "R", view_trends_link)
+        rent_data = parse_price_trend_response_full(rent_resp)
 
-    # Sale price rate
-    pr = (sale_data or {}).get("priceRate", {})
-    result.update({
-        "sale_avg_price": pr.get("avg", ""),
-        "sale_price": pr.get("price", ""),
-        "sale_qoq": pr.get("qoq", ""),
-        "sale_trend_direction": "up" if pr.get("up") else ("down" if pr.get("up") is False else ""),
-    })
+        pc = (sale_data or {}).get("priceCompare", {})
+        result.update({
+            "comp_highest_price": pc.get("max", ""),
+            "comp_highest_qoq": pc.get("maxQoq", ""),
+            "comp_highest_trend": "up" if pc.get("maxUp") else ("down" if pc.get("maxUp") is False else ""),
+            "comp_avg_price": pc.get("avg", ""),
+            "comp_avg_qoq": pc.get("avgQoq", ""),
+            "comp_avg_trend": "up" if pc.get("avgUp") else ("down" if pc.get("avgUp") is False else ""),
+            "comp_lowest_price": pc.get("min", ""),
+            "comp_lowest_qoq": pc.get("minQoq", ""),
+            "comp_lowest_trend": "up" if pc.get("minUp") else ("down" if pc.get("minUp") is False else ""),
+        })
 
-    # Rent price rate
-    rpr = (rent_data or {}).get("priceRate", {})
-    result.update({
-        "rent_avg_price": rpr.get("avg", ""),
-        "rent_price": rpr.get("price", ""),
-        "rent_qoq": rpr.get("qoq", ""),
-        "rent_trend_direction": "up" if rpr.get("up") else ("down" if rpr.get("up") is False else ""),
-    })
+        pr = (sale_data or {}).get("priceRate", {})
+        result.update({
+            "sale_avg_price": pr.get("avg", ""),
+            "sale_price": pr.get("price", ""),
+            "sale_qoq": pr.get("qoq", ""),
+            "sale_trend_direction": "up" if pr.get("up") else ("down" if pr.get("up") is False else ""),
+        })
 
-    # Sale graph data
-    gd = (sale_data or {}).get("graphData", {})
-    price_history = build_price_history(gd)
-    result["price_history"] = json.dumps(price_history, ensure_ascii=False)
+        rpr = (rent_data or {}).get("priceRate", {})
+        result.update({
+            "rent_avg_price": rpr.get("avg", ""),
+            "rent_price": rpr.get("price", ""),
+            "rent_qoq": rpr.get("qoq", ""),
+            "rent_trend_direction": "up" if rpr.get("up") else ("down" if rpr.get("up") is False else ""),
+        })
 
-    # Nearby localities (from sale data)
-    nearby = (sale_data or {}).get("nearbyRates", [])
-    result["nearby_localities"] = json.dumps(nearby, ensure_ascii=False) if nearby else "[]"
+        gd = (sale_data or {}).get("graphData", {})
+        price_history = build_price_history(gd)
+        result["price_history"] = json.dumps(price_history, ensure_ascii=False)
 
-    # Locality metadata
-    result.update({
-        "locality_rating": metadata.get("rating", ""),
-        "locality_rating_users": metadata.get("rating_users", ""),
-        "locality_reviews": metadata.get("reviews", ""),
-        "total_props": metadata.get("total_props", ""),
-        "props_for_sale": metadata.get("props_for_sale", ""),
-        "props_for_rent": metadata.get("props_for_rent", ""),
-        "projects_count": metadata.get("projects", ""),
-    })
+        nearby = (sale_data or {}).get("nearbyRates", [])
+        result["nearby_localities"] = json.dumps(nearby, ensure_ascii=False) if nearby else "[]"
 
-    print(f"      Sale price: {result['sale_avg_price']}, Rent: {result['rent_avg_price']}, Nearby: {len(nearby)} localities, History: {len(price_history)} quarters")
-    return result
+        result.update({
+            "locality_rating": metadata.get("rating", ""),
+            "locality_rating_users": metadata.get("rating_users", ""),
+            "locality_reviews": metadata.get("reviews", ""),
+            "total_props": metadata.get("total_props", ""),
+            "props_for_sale": metadata.get("props_for_sale", ""),
+            "props_for_rent": metadata.get("props_for_rent", ""),
+            "projects_count": metadata.get("projects", ""),
+        })
+
+        print(f"      Sale price: {result['sale_avg_price']}, Rent: {result['rent_avg_price']}, Nearby: {len(nearby)} localities, History: {len(price_history)} quarters")
+        return result
+    except Exception as e:
+        print(f"      Failed to fetch price trends: {e}")
+        return None
 
 
 def derive_reviews_link(view_trends_url):
