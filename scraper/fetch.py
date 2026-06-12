@@ -30,13 +30,15 @@ def _proxy_restore(session, saved):
 def do_get(session, url, delay=1.0, label="Req", indent=4):
     time.sleep(delay)
     resp = session.get(url, timeout=30)
+    fell_back = False
     if resp.status_code == 403 and session.proxies:
         print(f"{' ' * indent}[{label}] {resp.status_code} GET {url} ({PROXY_TAG}) - retrying directly")
         saved = _proxy_clear(session)
         resp = session.get(url, timeout=30)
         _proxy_restore(session, saved)
+        fell_back = True
     resp.raise_for_status()
-    tag = PROXY_TAG if session.proxies else "direct"
+    tag = "direct" if fell_back else PROXY_TAG
     print(f"{' ' * indent}[{label}] {resp.status_code} GET {url} ({tag})")
     return resp.text
 
@@ -44,12 +46,14 @@ def do_get(session, url, delay=1.0, label="Req", indent=4):
 def do_post(session, url, data, headers=None, delay=1.0, label="Req", indent=4):
     time.sleep(delay)
     resp = session.post(url, headers=headers, data=data, timeout=30)
+    fell_back = False
     if resp.status_code == 403 and session.proxies:
         print(f"{' ' * indent}[{label}] {resp.status_code} POST {url} ({PROXY_TAG}) - retrying directly")
         saved = _proxy_clear(session)
         resp = session.post(url, headers=headers, data=data, timeout=30)
         _proxy_restore(session, saved)
+        fell_back = True
     resp.raise_for_status()
-    tag = PROXY_TAG if session.proxies else "direct"
+    tag = "direct" if fell_back else PROXY_TAG
     print(f"{' ' * indent}[{label}] {resp.status_code} POST {url} ({tag})")
     return resp.text

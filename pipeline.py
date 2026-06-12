@@ -6,7 +6,7 @@ import sys
 import time
 
 from database.db import (
-    get_connection, init_tables, count_records, get_distinct_pairs,
+    get_connection, init_tables, count_records,
     get_non_empty_values, upsert_records, load_records,
     init_failed_table, insert_failed, load_failed_records,
     delete_failed_record, count_failed_records,
@@ -110,23 +110,12 @@ def run_stage2(conn, s1_records, export_csv, limit):
     print(f"{'=' * 60}")
     start = time.time()
 
-    existing_pairs = get_distinct_pairs(conn, STAGE2_TABLE, "city_name", "property_type")
-
-    cities_to_scrape = []
-    skipped = 0
-    for rec in s1_records:
-        key = (rec["city_name"], rec["property_type"])
-        if key in existing_pairs:
-            skipped += 1
-        else:
-            cities_to_scrape.append(rec)
-
-    print(f"  [Stage 2] New cities: {len(cities_to_scrape)}, Already in DB: {skipped}")
-
-    if limit and cities_to_scrape:
+    cities_to_scrape = s1_records
+    if limit:
         cities_to_scrape = cities_to_scrape[:limit]
-        print(f"  [Stage 2] Limit active: scraping {len(cities_to_scrape)} cities")
+        print(f"  [Stage 2] Limit active: processing {len(cities_to_scrape)} of {len(s1_records)} cities")
 
+    existing_count = count_records(conn, STAGE2_TABLE)
     all_new_records = []
     total_inserted = 0
     total_dupes = 0
@@ -139,14 +128,15 @@ def run_stage2(conn, s1_records, export_csv, limit):
             total_inserted += inserted
             total_dupes += dupes
             all_new_records.extend(records)
-            print(f"  Inserted {inserted} records for {city['city_name']}")
+            if inserted:
+                print(f"  Inserted {inserted} new records for {city['city_name']} ({dupes} duplicates skipped)")
 
     if export_csv:
         save_csv(all_new_records, gen_filename_s2(), DATA_DIR_S2)
 
     all_records = load_records(conn, STAGE2_TABLE)
     elapsed = time.time() - start
-    print_summary("Stage 2", elapsed, total=len(all_records), skipped=skipped, inserted=total_inserted, duplicates_ignored=total_dupes)
+    print_summary("Stage 2", elapsed, total=len(all_records), inserted=total_inserted, duplicates_ignored=total_dupes)
     return all_records
 
 
