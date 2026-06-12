@@ -5,26 +5,19 @@ import urllib.parse
 from datetime import datetime
 from random import randint
 
-import requests
 from bs4 import BeautifulSoup
+from scraper.fetch import create_session, do_get, do_post
 
 BASE_URL = "https://www.magicbricks.com"
 DWR_PATH = "/bricks/dwr"
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-}
 ORIG_SCRIPT_SESSION_ID = "1F47710CD4AE2F5DB09361C487D16BBD"
 REQUEST_DELAY = 1.0
 
-session = requests.Session()
-session.headers.update(HEADERS)
+session = create_session()
 
 
 def fetch_page(url):
-    time.sleep(REQUEST_DELAY)
-    resp = session.get(url, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
-    return resp.text
+    return do_get(session, url, delay=REQUEST_DELAY, label="Req", indent=6)
 
 
 def extract_city_code(html):
@@ -162,13 +155,15 @@ def dwr_fetch_price_trend(city_code, prop_type_id, main_property_type, locality_
         "batchId=0\n"
     )
 
-    resp = session.post(
+    return do_post(
+        session,
         BASE_URL + DWR_PATH + "/call/plaincall/ajaxService.fetchPriceTrendDetails.dwr",
-        headers={"Content-Type": "text/plain", "Referer": BASE_URL + page_path},
         data=body,
-        timeout=30,
+        headers={"Content-Type": "text/plain", "Referer": BASE_URL + page_path},
+        delay=0,
+        label="Req",
+        indent=6,
     )
-    return resp.text
 
 
 def _parse_dwr_val(val):
@@ -361,7 +356,11 @@ def build_price_history(graph_data):
 def scrape_locality(city_name, sub_property_type, view_trends_link):
     print(f"    [Locality] {city_name} - {sub_property_type}")
     
-    html = fetch_page(view_trends_link)
+    try:
+        html = fetch_page(view_trends_link)
+    except Exception as e:
+        print(f"      Failed to fetch: {e}")
+        return None
     page_data = extract_page_url_data(html)
     metadata = extract_locality_metadata(html)
 

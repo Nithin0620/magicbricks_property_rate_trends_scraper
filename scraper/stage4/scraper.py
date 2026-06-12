@@ -3,24 +3,17 @@ import re
 import time
 from datetime import datetime
 
-import requests
 from bs4 import BeautifulSoup
+from scraper.fetch import create_session, do_get
 
 BASE_URL = "https://www.magicbricks.com"
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-}
 REQUEST_DELAY = 1.0
 
-session = requests.Session()
-session.headers.update(HEADERS)
+session = create_session()
 
 
 def fetch_page(url):
-    time.sleep(REQUEST_DELAY)
-    resp = session.get(url, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
-    return resp.text
+    return do_get(session, url, delay=REQUEST_DELAY, label="Req", indent=4)
 
 
 def extract_rating_blocks(soup):

@@ -1,19 +1,16 @@
-import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+from scraper.fetch import create_session, do_get
 
 
 BASE_URL = "https://www.magicbricks.com"
-TARGET_URL = "https://www.magicbricks.com/bricks/propertyRates.html?%20fromSite=mb"
+TARGET_URL = "https://www.magicbricks.com/bricks/propertyRates.html?fromSite=mb"
+
+session = create_session()
 
 
 def fetch_page(url):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    resp = requests.get(url, headers=headers, timeout=30)
-    resp.raise_for_status()
-    return resp.text
+    return do_get(session, url, delay=0, label="Req", indent=2)
 
 
 def parse_cities(html):

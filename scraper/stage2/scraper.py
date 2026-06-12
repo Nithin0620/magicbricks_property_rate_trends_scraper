@@ -1,29 +1,22 @@
 import math
-import requests
 from bs4 import BeautifulSoup
 import re
 import time
 import urllib.parse
 from datetime import datetime
 from random import randint
+from scraper.fetch import create_session, do_get, do_post
 
 BASE_URL = "https://www.magicbricks.com"
 DWR_PATH = "/bricks/dwr"
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-}
 ORIG_SCRIPT_SESSION_ID = "1F47710CD4AE2F5DB09361C487D16BBD"
 REQUEST_DELAY = 1.5
 
-session = requests.Session()
-session.headers.update(HEADERS)
+session = create_session()
 
 
 def fetch_page(url):
-    time.sleep(REQUEST_DELAY)
-    resp = session.get(url, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
-    return resp.text
+    return do_get(session, url, delay=REQUEST_DELAY, label="Req", indent=4)
 
 
 def dwr_call(city_code, prop_type_id, page_num, main_tab, page_url):
@@ -50,13 +43,15 @@ def dwr_call(city_code, prop_type_id, page_num, main_tab, page_url):
         "batchId=0\n"
     )
 
-    resp = session.post(
+    return do_post(
+        session,
         BASE_URL + DWR_PATH + "/call/plaincall/ajaxService.getPropertyRates.dwr",
-        headers={"Content-Type": "text/plain", "Referer": BASE_URL + page_url},
         data=body,
-        timeout=30,
+        headers={"Content-Type": "text/plain", "Referer": BASE_URL + page_url},
+        delay=0,
+        label="Req",
+        indent=4,
     )
-    return resp.text
 
 
 def _parse_dwr_val(val):
